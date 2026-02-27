@@ -3,13 +3,13 @@
 // Monitors transcript file growth to estimate context window usage.
 // When estimated usage exceeds ~90% (less than ~10% remaining), plays FAAAAHHH.
 //
-// This runs as an async PostToolUse hook, so it won't block Claude's responses.
+// This runs as a synchronous PostToolUse hook (fast — just a file size check).
 // Think of it as Claude's subconscious anxiety building up in the background.
 
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { execFile, exec } = require("child_process");
+const { spawn } = require("child_process");
 
 // Read JSON input from stdin
 let input = "";
@@ -49,13 +49,15 @@ function run(data) {
     process.exit(0);
   }
 
-  // Set baseline on first run (or after a compact reset)
+  // Baseline is set by SessionStart hook (init-baseline.js) or after compaction.
+  // If somehow missing, set it now and skip this check.
   if (!fs.existsSync(baselineFile)) {
     fs.writeFileSync(baselineFile, String(currentSize));
     process.exit(0);
   }
 
   const baseline = parseInt(fs.readFileSync(baselineFile, "utf8").trim(), 10) || 0;
+  if (baseline === currentSize) process.exit(0); // no growth yet
 
   // Calculate growth since baseline (session start or last compaction)
   const growth = currentSize - baseline;
@@ -89,20 +91,24 @@ function playSound(pluginRoot) {
 
   const platform = os.platform();
 
+  // Use detached + unref so the audio player survives even if the
+  // parent Claude Code process exits (important for -p mode)
+  const spawnOpts = { stdio: "ignore", detached: true };
+
   if (platform === "darwin") {
     // macOS — afplay is built-in, no dependencies needed
-    execFile("afplay", [soundFile], { stdio: "ignore" }).unref();
+    spawn("afplay", [soundFile], spawnOpts).unref();
   } else if (platform === "win32") {
     // Windows — use PowerShell with MediaPlayer (supports mp3 natively)
-    const psScript = `
-      Add-Type -AssemblyName presentationCore
-      $player = New-Object System.Windows.Media.MediaPlayer
-      $player.Open([Uri]"${soundFile.replace(/\\/g, "\\\\")}")
-      $player.Play()
-      Start-Sleep -Seconds 10
-    `.trim();
-    exec(`powershell -NoProfile -Command "${psScript}"`, {
-      stdio: "ignore",
+    const psScript = [
+      "Add-Type -AssemblyName presentationCore;",
+      "$p = New-Object System.Windows.Media.MediaPlayer;",
+      `$p.Open([Uri]'${soundFile.replace(/'/g, "''")}');`,
+      "$p.Play();",
+      "Start-Sleep -Seconds 10",
+    ].join(" ");
+    spawn("powershell", ["-NoProfile", "-Command", psScript], {
+      ...spawnOpts,
       windowsHide: true,
     }).unref();
   } else {
@@ -115,14 +121,13 @@ function playSound(pluginRoot) {
     ];
 
     for (const [cmd, args] of players) {
-      try {
-        const child = execFile(cmd, args, { stdio: "ignore" });
-        child.unref();
-        child.on("error", () => {}); // suppress if binary not found
-        break;
-      } catch {
-        continue;
-      }
+      const child = spawn(cmd, args, spawnOpts);
+      let failed = false;
+      child.on("error", () => { failed = true; });
+      child.unref();
+      // Give it a moment to fail if binary doesn't exist, then move on
+      setTimeout(() => { if (!failed) process.exit(0); }, 100);
+      break;
     }
   }
 }
