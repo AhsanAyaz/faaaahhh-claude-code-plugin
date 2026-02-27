@@ -9,7 +9,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { execFile, exec } = require("child_process");
+const { spawn } = require("child_process");
 
 // Read JSON input from stdin
 let input = "";
@@ -63,18 +63,21 @@ function playSound(pluginRoot) {
 
   const platform = os.platform();
 
+  // Use detached + unref so the audio player survives process exit
+  const spawnOpts = { stdio: "ignore", detached: true };
+
   if (platform === "darwin") {
-    execFile("afplay", [soundFile], { stdio: "ignore" }).unref();
+    spawn("afplay", [soundFile], spawnOpts).unref();
   } else if (platform === "win32") {
-    const psScript = `
-      Add-Type -AssemblyName presentationCore
-      $player = New-Object System.Windows.Media.MediaPlayer
-      $player.Open([Uri]"${soundFile.replace(/\\/g, "\\\\")}")
-      $player.Play()
-      Start-Sleep -Seconds 10
-    `.trim();
-    exec(`powershell -NoProfile -Command "${psScript}"`, {
-      stdio: "ignore",
+    const psScript = [
+      "Add-Type -AssemblyName presentationCore;",
+      "$p = New-Object System.Windows.Media.MediaPlayer;",
+      `$p.Open([Uri]'${soundFile.replace(/'/g, "''")}');`,
+      "$p.Play();",
+      "Start-Sleep -Seconds 10",
+    ].join(" ");
+    spawn("powershell", ["-NoProfile", "-Command", psScript], {
+      ...spawnOpts,
       windowsHide: true,
     }).unref();
   } else {
@@ -86,14 +89,12 @@ function playSound(pluginRoot) {
     ];
 
     for (const [cmd, args] of players) {
-      try {
-        const child = execFile(cmd, args, { stdio: "ignore" });
-        child.unref();
-        child.on("error", () => {});
-        break;
-      } catch {
-        continue;
-      }
+      const child = spawn(cmd, args, spawnOpts);
+      let failed = false;
+      child.on("error", () => { failed = true; });
+      child.unref();
+      setTimeout(() => { if (!failed) process.exit(0); }, 100);
+      break;
     }
   }
 }
