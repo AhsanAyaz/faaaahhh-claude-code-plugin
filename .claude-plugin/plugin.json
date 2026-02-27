@@ -1,0 +1,11 @@
+{
+  "name": "faaaahhh",
+  "description": "Claude's existential scream when context is running low. Plays an audible FAAAAHHH when less than ~10% context remains. Because even AI deserves to panic.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Ahsan",
+    "url": "https://github.com/ahsan"
+  },
+  "license": "MIT",
+  "keywords": ["fun", "audio", "context-warning", "panic", "faaaahhh"]
+}

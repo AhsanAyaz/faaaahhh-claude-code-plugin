@@ -1,0 +1,29 @@
+{
+  "description": "Context panic detector - plays FAAAAHHH when Claude's memory is about to be wiped",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/check-context.js\"",
+            "async": true,
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/on-compact.js\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
