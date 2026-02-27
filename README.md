@@ -65,6 +65,17 @@ Then launch Claude Code with the plugin:
 claude --plugin-dir /path/to/faaaahhh-claude-code-plugin
 ```
 
+## Quick Test
+
+After cloning, verify everything works with a single command:
+
+```bash
+cd faaaahhh-claude-code-plugin
+FAAAAHHH_THRESHOLD=1000 claude --plugin-dir . -p "Read README.md and scripts/check-context.js, then summarize both"
+```
+
+This sets a tiny 1KB threshold so the sound triggers almost immediately. If you hear the scream, it works.
+
 ## Audio Support
 
 The plugin auto-detects available audio players per platform:
