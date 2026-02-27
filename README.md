@@ -14,24 +14,26 @@ This plugin monitors context usage in real-time and plays `faaaahhhhhhh.mp3` whe
 
 ```mermaid
 flowchart TD
-    A["Claude Code Session Starts"] --> B["PostToolUse Hook fires<br/>(after every tool call)"]
-    B --> C["check-context.js reads<br/>transcript file size"]
-    C --> D{"Transcript growth<br/>> threshold?"}
-    D -- No --> E["Stay calm.<br/>Continue working."]
-    E --> B
-    D -- Yes --> F["FAAAAHHHHHHH!<br/>Play the sound"]
-    F --> G["Set 'played' flag<br/>(only scream once per cycle)"]
+    A["Claude Code Session Starts"] --> B["SessionStart Hook fires"]
+    B --> C["init-baseline.js records<br/>initial transcript size"]
+    C --> D["PostToolUse Hook fires<br/>(after every tool call)"]
+    D --> E["check-context.js reads<br/>transcript file size"]
+    E --> F{"Growth since baseline<br/>> threshold?"}
+    F -- No --> G["Stay calm.<br/>Continue working."]
+    G --> D
+    F -- Yes --> H["FAAAAHHHHHHH!<br/>Play the sound"]
+    H --> I["Set 'played' flag<br/>(only scream once per cycle)"]
 
-    H["Context window fills up"] --> I["Auto-compaction triggers"]
-    I --> J["PreCompact Hook fires"]
-    J --> K["on-compact.js resets state"]
-    K --> L["Play FAAAAHHH one last time<br/>(pour one out for the lost context)"]
-    L --> M["Reset baseline & played flag"]
-    M --> B
+    J["Context window fills up"] --> K["Auto-compaction triggers"]
+    K --> L["PreCompact Hook fires"]
+    L --> M["on-compact.js resets state"]
+    M --> N["Play FAAAAHHH one last time<br/>(pour one out for the lost context)"]
+    N --> O["Reset baseline & played flag"]
+    O --> D
 
-    style F fill:#ff4444,color:#fff,stroke:#cc0000
-    style L fill:#ff6666,color:#fff,stroke:#cc0000
-    style H fill:#ffaa00,color:#000,stroke:#cc8800
+    style H fill:#ff4444,color:#fff,stroke:#cc0000
+    style N fill:#ff6666,color:#fff,stroke:#cc0000
+    style J fill:#ffaa00,color:#000,stroke:#cc8800
 ```
 
 ### Detection Strategy
@@ -107,7 +109,8 @@ faaaahhh-claude-code-plugin/
 ├── hooks/
 │   └── hooks.json           # Hook configuration
 ├── scripts/
-│   ├── check-context.js     # Async PostToolUse hook — the panic detector
+│   ├── init-baseline.js     # SessionStart hook — records initial transcript size
+│   ├── check-context.js     # PostToolUse hook — the panic detector
 │   └── on-compact.js        # PreCompact hook — the point of no return
 ├── skills/
 │   └── panic-check/
